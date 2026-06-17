@@ -3,6 +3,7 @@
 #include "../communication/can/comm_can.h"
 #include "../datalayer/datalayer.h"
 #include "../devboard/utils/events.h"
+#include "../devboard/utils/logging.h"
 
 void RjxzsBms::update_values() {
 
@@ -188,6 +189,8 @@ void RjxzsBms::handle_incoming_can_frame(CAN_frame rx_frame) {
         balanced_reference_voltage = (rx_frame.data.u8[1] << 8) | rx_frame.data.u8[2];
         minimum_cell_voltage = (rx_frame.data.u8[3] << 8) | rx_frame.data.u8[4];
         maximum_cell_voltage = (rx_frame.data.u8[5] << 8) | rx_frame.data.u8[6];
+        charging_discharging_mos_status = rx_frame.data.u8[7];
+        charging_discharging_mos_status_received = true;
       } else if (mux == 0x52) {
         accumulated_total_capacity_high = (rx_frame.data.u8[1] << 8) | rx_frame.data.u8[2];
         accumulated_total_capacity_low = (rx_frame.data.u8[3] << 8) | rx_frame.data.u8[4];
@@ -254,17 +257,107 @@ void RjxzsBms::transmit_can(unsigned long currentMillis) {
     previousMillis10s = currentMillis;
 
     if (datalayer.system.status.system_status == FAULT) {
-      // Incase we loose BMS comms, resend CAN start
+      // In case we lose BMS comms, resend CAN start
       setup_completed = false;
     }
 
     if (!setup_completed) {
-      RJXZS_F4.data.u8[0] = 0x10;  // Communication connected flag
+      // 0x10 Communication connected flag: 0x0002 = connected
+      memset(RJXZS_F4.data.u8, 0, 8);
+      RJXZS_F4.data.u8[0] = 0x10;
+      RJXZS_F4.data.u8[1] = 0x00;
+      RJXZS_F4.data.u8[2] = 0x02;
       transmit_can_frame(&RJXZS_F4);
-      RJXZS_F4.data.u8[0] = 0x1C;  //CAN OK
+
+      // 0x1C CAN OK: 0x0002 = connected
+      memset(RJXZS_F4.data.u8, 0, 8);
+      RJXZS_F4.data.u8[0] = 0x1C;
+      RJXZS_F4.data.u8[1] = 0x00;
+      RJXZS_F4.data.u8[2] = 0x02;
       transmit_can_frame(&RJXZS_F4);
     }
   }
+}
+
+void RjxzsBms::send_rjxzs_command(uint8_t command, uint16_t value) {
+  CAN_frame command_frame = {.FD = false, .ext_ID = true, .DLC = 3, .ID = 0xF4, .data = {0}};
+  command_frame.data.u8[0] = command;
+  command_frame.data.u8[1] = (value >> 8) & 0xFF;
+  command_frame.data.u8[2] = value & 0xFF;
+  transmit_can_frame(&command_frame);
+}
+
+void RjxzsBms::send_channel_control_command(uint16_t channel_state) {
+  send_rjxzs_command(0x07, channel_state);
+}
+
+const char* RjxzsBms::rjxzs_charge_mos_status() {
+  if (!charging_discharging_mos_status_received) {
+    return "Unknown";
+  }
+  return (charging_discharging_mos_status & 0x10) ? "ON" : "OFF";
+}
+
+const char* RjxzsBms::rjxzs_discharge_mos_status() {
+  if (!charging_discharging_mos_status_received) {
+    return "Unknown";
+  }
+  return (charging_discharging_mos_status & 0x01) ? "ON" : "OFF";
+}
+
+const char* RjxzsBms::rjxzs_default_channel_state_status() {
+  switch (default_channel_state) {
+    case 0x01:
+      return "ON after power-on";
+    case 0x02:
+      return "OFF after power-on";
+    default:
+      return "Unknown";
+  }
+}
+
+const char* RjxzsBms::rjxzs_historical_log_status() {
+  switch (protecting_historical_logs) {
+    case 0x00:
+      return "None";
+    case 0x01:
+      return "Overcurrent protection";
+    case 0x02:
+      return "Overdischarge protection";
+    case 0x03:
+      return "Overcharge protection";
+    case 0x04:
+      return "Over temperature protection";
+    case 0x05:
+      return "Battery string error protection";
+    case 0x06:
+      return "Damaged charging relay";
+    case 0x07:
+      return "Damaged discharge relay";
+    case 0x08:
+      return "Low voltage power outage protection";
+    case 0x09:
+      return "Voltage difference protection";
+    case 0x0A:
+      return "Low temperature protection";
+    default:
+      return "Unknown log code";
+  }
+}
+
+void RjxzsBms::rjxzs_channel_on() {
+  send_channel_control_command(0x01);
+  logging.println("RJXZS Channel ON command sent");
+}
+
+void RjxzsBms::rjxzs_channel_off() {
+  send_channel_control_command(0x02);
+  logging.println("RJXZS Channel OFF command sent");
+}
+
+void RjxzsBms::rjxzs_clear_historical_logs() {
+  send_rjxzs_command(0x13, 0x0001);
+  logging.println("RJXZS Clear historical logs command sent");
 }
 
 void RjxzsBms::setup(void) {  // Performs one time setup at startup

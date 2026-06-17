@@ -12,6 +12,14 @@ class RjxzsBms : public CanBattery {
   virtual void handle_incoming_can_frame(CAN_frame rx_frame);
   virtual void update_values();
   virtual void transmit_can(unsigned long currentMillis);
+  bool supports_rjxzs_channel_control() { return true; }
+  const char* rjxzs_charge_mos_status();
+  const char* rjxzs_discharge_mos_status();
+  const char* rjxzs_default_channel_state_status();
+  const char* rjxzs_historical_log_status();
+  void rjxzs_channel_on();
+  void rjxzs_channel_off();
+  void rjxzs_clear_historical_logs();
   static constexpr const char* Name = "RJXZS BMS, DIY battery";
 
  private:
@@ -21,6 +29,9 @@ class RjxzsBms : public CanBattery {
 
   //Actual content messages
   CAN_frame RJXZS_F4 = {.FD = false, .ext_ID = true, .DLC = 3, .ID = 0xF4, .data = {0x1C, 0x00, 0x02}};
+
+  void send_rjxzs_command(uint8_t command, uint16_t value);
+  void send_channel_control_command(uint16_t channel_state);
 
   static const int FIVE_MINUTES = 60;
 
@@ -70,6 +81,8 @@ class RjxzsBms : public CanBattery {
   uint16_t balanced_reference_voltage = 0;
   uint16_t minimum_cell_voltage = 3300;
   uint16_t maximum_cell_voltage = 3300;
+  uint8_t charging_discharging_mos_status = 0;
+  bool charging_discharging_mos_status_received = false;
   uint16_t cellvoltages[MAX_AMOUNT_CELLS] = {0};
   uint8_t populated_cellvoltages = 0;
   uint16_t accumulated_total_capacity_high = 0;

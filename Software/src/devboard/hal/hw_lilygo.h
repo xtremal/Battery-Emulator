@@ -29,7 +29,7 @@ class LilyGoHal : public Esp32Hal {
   // CS input of MCP2515
   virtual gpio_num_t MCP2515_CS() { return GPIO_NUM_18; }
   // INT output of MCP2515
-  virtual gpio_num_t MCP2515_INT() { return GPIO_NUM_35; }
+  virtual gpio_num_t MCP2515_INT() { return GPIO_NUM_32; }
 
   // CANFD_ADDON defines for MCP2517
   virtual gpio_num_t MCP2517_SCK() { return GPIO_NUM_12; }

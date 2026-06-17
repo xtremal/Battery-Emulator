@@ -613,6 +613,33 @@ void init_webserver() {
     }
   });
 
+  def_route_with_auth("/rjxzsChannelOn", server, HTTP_GET, [](AsyncWebServerRequest* request) {
+    if (!battery || !battery->supports_rjxzs_channel_control()) {
+      request->send(400, "text/plain", "RJXZS channel control is not supported by the active battery");
+      return;
+    }
+    battery->rjxzs_channel_on();
+    request->send(200, "text/plain", "RJXZS Channel ON command sent");
+  });
+
+  def_route_with_auth("/rjxzsChannelOff", server, HTTP_GET, [](AsyncWebServerRequest* request) {
+    if (!battery || !battery->supports_rjxzs_channel_control()) {
+      request->send(400, "text/plain", "RJXZS channel control is not supported by the active battery");
+      return;
+    }
+    battery->rjxzs_channel_off();
+    request->send(200, "text/plain", "RJXZS Channel OFF command sent");
+  });
+
+  def_route_with_auth("/rjxzsClearHistoricalLogs", server, HTTP_GET, [](AsyncWebServerRequest* request) {
+    if (!battery || !battery->supports_rjxzs_channel_control()) {
+      request->send(400, "text/plain", "RJXZS channel control is not supported by the active battery");
+      return;
+    }
+    battery->rjxzs_clear_historical_logs();
+    request->send(200, "text/plain", "RJXZS Clear historical logs command sent");
+  });
+
   // Route for editing SOC Calibration BYD
   update_string_setting("/editCalTargetSOC", [](String value) {
     datalayer_extended.bydAtto3.calibrationTargetSOC = static_cast<uint16_t>(value.toFloat());
@@ -1574,6 +1601,25 @@ String processor(const String& var) {
     if (datalayer.system.info.web_logging_active || datalayer.system.info.SD_logging_active) {
       content += "<button onclick='Log()'>Log</button> ";
     }
+    if (battery && battery->supports_rjxzs_channel_control()) {
+      content += "<div style='color:white;margin:10px 0;'>";
+      content += "<strong>RJXZS BMS:</strong> ";
+      content += "Charge MOS: ";
+      content += battery->rjxzs_charge_mos_status();
+      content += " | Discharge MOS: ";
+      content += battery->rjxzs_discharge_mos_status();
+      content += " | Default channel: ";
+      content += battery->rjxzs_default_channel_state_status();
+      content += " | Log: ";
+      content += battery->rjxzs_historical_log_status();
+      content += "</div>";
+      content += "<br/><button onclick=\"if(confirm('Send RJXZS Channel ON command?')) { RJXZSChannel(true); }\">RJXZS "
+                 "Channel ON</button> ";
+      content += "<button onclick=\"if(confirm('Send RJXZS Channel OFF command?')) { RJXZSChannel(false); }\">RJXZS "
+                 "Channel OFF</button> ";
+      content += "<button onclick=\"if(confirm('Clear RJXZS historical logs?')) { RJXZSClearHistoricalLogs(); }\">Clear "
+                 "RJXZS historical logs</button><br/>";
+    }
     content += "<button onclick='Cellmon()'>Cellmonitor</button> ";
     content += "<button onclick='Events()'>Events</button> ";
     content += "<button onclick='askReboot()'>Reboot Emulator</button>";
@@ -1622,6 +1668,18 @@ String processor(const String& var) {
         "var xhr=new "
         "XMLHttpRequest();xhr.onload=function() { "
         "window.location.reload();};xhr.open('GET','/equipmentStop?value='+stop,true);xhr.send();";
+    content += "}";
+    content += "function RJXZSChannel(on){";
+    content += "var xhr=new XMLHttpRequest();";
+    content += "xhr.onload=function(){alert(xhr.responseText);};";
+    content += "xhr.onerror=function(){alert('RJXZS channel command failed');};";
+    content += "xhr.open('GET',on?'/rjxzsChannelOn':'/rjxzsChannelOff',true);xhr.send();";
+    content += "}";
+    content += "function RJXZSClearHistoricalLogs(){";
+    content += "var xhr=new XMLHttpRequest();";
+    content += "xhr.onload=function(){alert(xhr.responseText);};";
+    content += "xhr.onerror=function(){alert('RJXZS clear historical logs command failed');};";
+    content += "xhr.open('GET','/rjxzsClearHistoricalLogs',true);xhr.send();";
     content += "}";
     content += "</script>";
 

@@ -105,6 +105,11 @@ class Battery {
   virtual bool supports_factory_mode_method() { return false; }
   virtual bool supports_chademo_restart() { return false; }
   virtual bool supports_chademo_stop() { return false; }
+  virtual bool supports_rjxzs_channel_control() { return false; }
+  virtual const char* rjxzs_charge_mos_status() { return "Unknown"; }
+  virtual const char* rjxzs_discharge_mos_status() { return "Unknown"; }
+  virtual const char* rjxzs_default_channel_state_status() { return "Unknown"; }
+  virtual const char* rjxzs_historical_log_status() { return "None"; }
   virtual bool supports_balancing() { return false; }
   virtual bool is_balancing_active() { return false; }
   virtual const char* get_balancing_state_string() { return nullptr; }
@@ -132,6 +137,9 @@ class Battery {
   virtual void set_factory_mode() {}
   virtual void chademo_restart() {}
   virtual void chademo_stop() {}
+  virtual void rjxzs_channel_on() {}
+  virtual void rjxzs_channel_off() {}
+  virtual void rjxzs_clear_historical_logs() {}
   virtual void initiate_balancing() {}
   virtual void end_balancing() {}
 
