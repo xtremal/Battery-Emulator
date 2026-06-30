@@ -14,6 +14,9 @@ String cellmonitor_processor(const String& var) {
         "cursor: pointer; border-radius: 10px; }";
     content += "button:hover { background-color: #3A4A52; }";
     content += ".container { display: flex; flex-wrap: wrap; justify-content: space-around; }";
+    content += ".cell-group { border: 1px solid #607D8B; margin: 8px; padding: 8px; border-radius: 8px; }";
+    content += ".cell-group-title { font-weight: bold; margin-bottom: 6px; color: #B0BEC5; }";
+    content += ".cell-group-cells { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px; }";
     content += ".cell { padding: 10px; border: 1px solid white; text-align: center; }";
     content += ".low-voltage { color: red; }";              // Style for low voltage text
     content += ".voltage-values { margin-bottom: 10px; }";  // Style for voltage values section
@@ -187,6 +190,7 @@ String cellmonitor_processor(const String& var) {
     content += "const graphContainer = document.getElementById('graph');";
     content += "const valueDisplay = document.getElementById('valueDisplay');";
     content += "const cellContainer = document.getElementById('cellContainer');";
+    content += "const cellGroupSize = 16;";
 
     content += "function home() { window.location.href = '/'; }";
 
@@ -241,7 +245,23 @@ String cellmonitor_processor(const String& var) {
     // Cell population function. For each value, add a cell block with its value
     content +=
         "function createCells(data) {"
+        "let groupCells = null;"
         "data.forEach((mV, index) => {"
+        "if (index % cellGroupSize === 0) {"
+        "const group = document.createElement('div');"
+        "group.className = 'cell-group';"
+        "const start = index + 1;"
+        "const end = Math.min(index + cellGroupSize, data.length);"
+        "const slice = data.slice(index, end);"
+        "const gmin = Math.min(...slice);"
+        "const gmax = Math.max(...slice);"
+        "group.innerHTML = `<div class='cell-group-title'>Balancer ${Math.floor(index / cellGroupSize) + 1} "
+        "(cells ${start}-${end})<br>min ${gmin} mV / max ${gmax} mV / delta ${gmax - gmin} mV</div>`;"
+        "groupCells = document.createElement('div');"
+        "groupCells.className = 'cell-group-cells';"
+        "group.appendChild(groupCells);"
+        "cellContainer.appendChild(group);"
+        "}"
         "const cell = document.createElement('div');"
         "cell.className = 'cell';"
         "cell.id = `cellIndex${index}`;"
@@ -264,7 +284,7 @@ String cellmonitor_processor(const String& var) {
         "cell.style.removeProperty('background-color');"
         "});"
 
-        "cellContainer.appendChild(cell);"
+        "groupCells.appendChild(cell);"
         "});"
         "}";
 
